@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  fullName  String?
+  createdAt DateTime @default(now())
+
+  notes     Note[]
+  teams     TeamMember[]
+  cursors   CursorPosition[]
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  category  String?
+  version   Int      @default(1)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cursors     CursorPosition[]
+  history     NoteHistory[]
+  team        Team?    @relation(fields: [teamId], references: [id])
+  teamId      String?
+  invitations Invitation[]
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  members   TeamMember[]
+  notes     Note[]
+}
+
+model TeamMember {
+  team     Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId   String
+  user     User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String
+
+  @@id([teamId, userId])
+}
+
+model CursorPosition {
+  id        String   @id @default(uuid())
+  x         Float
+  y         Float
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  noteId    String
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, noteId])
+}
+
+model NoteHistory {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  version   Int
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  noteId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@index([noteId, version])
+}
+
+model Invitation {
+  id        String   @id @default(uuid())
+  email     String
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  noteId    String
+  status    InvitationStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  invitedBy String   // userId of the inviter
+
+  @@unique([email, noteId])
+  @@index([status])
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
